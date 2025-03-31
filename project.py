@@ -4,7 +4,7 @@ import csv
 from pyvis.network import Network
 
 NODE_LIMIT = 1000000
-SIZE_FACTOR = 100
+SIZE_FACTOR = 1000
 CULL = False
 CULL_SIZE_FACTOR = 20
 HISTOGRAM = False

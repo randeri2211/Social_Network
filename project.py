@@ -1,16 +1,16 @@
-import time
 import networkx as nx
 import matplotlib.pyplot as plt
 import csv
 from pyvis.network import Network
 
-NODE_LIMIT = 3000
+NODE_LIMIT = 1000000
 SIZE_FACTOR = 100
-CULL = True
-CULL_SIZE_FACTOR = 2
+CULL = False
+CULL_SIZE_FACTOR = 20
 HISTOGRAM = False
 SHOW = True
-
+CENTRALITY = False
+RANDOM_GRAPH = False
 
 g = nx.Graph()
 
@@ -74,9 +74,8 @@ print(f'Average node degree:{deg_avg}')
 
 # Calculate degree centrality
 deg_list = list(sorted(g.degree, key=lambda x: x[1], reverse=True))
-print(deg_list)
 max_degree = deg_list[0][1]
-deg_norm = list(map(lambda x: (x[0],x[1] / max_degree), deg_list))
+deg_norm = list(map(lambda x: (x[0], x[1] / max_degree), deg_list))
 print(f'max degree:{max_degree}')
 for i in g.nodes:
     g.nodes[i]['size'] = SIZE_FACTOR * g.degree[i] / max_degree
@@ -89,34 +88,36 @@ for i in range(top_x):
 
 # Show Small World property
 print(f'Average clustering:{nx.average_clustering(g)}')
-sorted_closeness = sorted(nx.closeness_centrality(g).items(), key=lambda x: x[1], reverse=True)
-print(f'Closeness centrality:{sorted_closeness[:5]}')
+if CENTRALITY:
+    sorted_closeness = sorted(nx.closeness_centrality(g).items(), key=lambda x: x[1], reverse=True)
+    print(f'Closeness centrality:{sorted_closeness[:5]}')
 # Calculate degree spread
 deg_spread = [0 for _ in range(max_degree + 1)]
 for i in g.degree:
     deg_spread[i[1]] += 1
-print(deg_spread)
+# print(deg_spread)
 
 n = g.number_of_nodes()
 k = int(deg_avg)  # average degree (must be even for Watts-Strogatz)
 p = 0.1  # Rewiring probability (adjustable)
 
-print(f'\n--- Random Graph Comparison ---')
-print(f'Generating Watts-Strogatz model with n={n}, k={k}, p={p}...')
+if RANDOM_GRAPH:
+    print(f'\n--- Random Graph Comparison ---')
+    print(f'Generating Watts-Strogatz model with n={n}, k={k}, p={p}...')
 
-max_try = 30
-for i in range(max_try):
-    try:
-        random_g = nx.watts_strogatz_graph(n=n, k=k, p=p)
-        # Compare clustering coefficient
-        random_clustering = nx.average_clustering(random_g)
-        print(f'Random graph clustering coefficient: {random_clustering:.4f}')
-        # Compare average shortest path
-        random_avg_path = nx.average_shortest_path_length(random_g)
-        print(f'Random graph average shortest path length: {random_avg_path:.4f}')
-        break
-    except nx.NetworkXError:
-        print("Random graph is not connected, so average shortest path length can't be computed.")
+    max_try = 30
+    for i in range(max_try):
+        try:
+            random_g = nx.watts_strogatz_graph(n=n, k=k, p=p)
+            # Compare clustering coefficient
+            random_clustering = nx.average_clustering(random_g)
+            print(f'Random graph clustering coefficient: {random_clustering:.4f}')
+            # Compare average shortest path
+            random_avg_path = nx.average_shortest_path_length(random_g)
+            print(f'Random graph average shortest path length: {random_avg_path:.4f}')
+            break
+        except nx.NetworkXError:
+            print("Random graph is not connected, so average shortest path length can't be computed.")
 
 # Show degree histogram
 if HISTOGRAM:
@@ -124,15 +125,16 @@ if HISTOGRAM:
     plt.show()
 
 # Add Color to each node
-available_colors = ['#FF0000', '#800000', '#FFFF00', '#808000']
+available_colors = ['#FF0000', '#800000', '#FFFF00', '#00FFFF']
 for i in g.nodes:
     g.nodes[i]['color'] = available_colors[page_types.index(g.nodes[i]['page_type'])]
 
 # Add Legend Nodes
+print("Adding legends")
 size = 50 * (1 if CULL else CULL_SIZE_FACTOR)
 step = size * 4
-x = -size * 40
-y = 0
+l_g = -size * 40
+l_y = 0
 legend_nodes = [
     (
         NODE_LIMIT + i,
@@ -140,8 +142,8 @@ legend_nodes = [
             'label': page_types[i],
             'fixed': True,  # So that we can move the legend nodes around to arrange them better
             'physics': False,
-            'x': x,
-            'y': f'{y + i * step}px',
+            'x': l_g,
+            'y': f'{l_y + i * step}px',
             'shape': 'box',
             'color': available_colors[i],
             'font': {'size': size * 2}
@@ -149,14 +151,17 @@ legend_nodes = [
     )
     for i in range(len(page_types))
 ]
-
+print("UNFREEZING")
 g = nx.Graph(g)  # Unfreeze graph for some reason
+print("ADDING TO GRAPH")
 g.add_nodes_from(legend_nodes)
 
 nt = Network(height=900)
 nt.toggle_physics(False)
 nt.toggle_stabilization(False)
 nt.toggle_drag_nodes(True)
+print("CREATING")
 nt.from_nx(g)
 if SHOW:
+    print('SHOWING')
     nt.show("degree_centrality_culled.html", notebook=False)

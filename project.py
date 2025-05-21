@@ -1,18 +1,20 @@
+import time
+
 import networkx as nx
 import matplotlib.pyplot as plt
 import csv
-from pyvis.network import Network
 
 NODE_LIMIT = 1000000
 SIZE_FACTOR = 1000
 CULL = False
 CULL_SIZE_FACTOR = 20
 HISTOGRAM = False
-SHOW = True
 CENTRALITY = False
 RANDOM_GRAPH = False
 
 g = nx.Graph()
+
+start_time = time.time()
 
 # Adding Nodes
 nodes = []
@@ -91,7 +93,9 @@ print(f'Average clustering:{nx.average_clustering(g)}')
 if CENTRALITY:
     sorted_closeness = sorted(nx.closeness_centrality(g).items(), key=lambda x: x[1], reverse=True)
     print(f'Closeness centrality:{sorted_closeness[:5]}')
+
 # Calculate degree spread
+print(f'Counting degree spread')
 deg_spread = [0 for _ in range(max_degree + 1)]
 for i in g.degree:
     deg_spread[i[1]] += 1
@@ -124,44 +128,6 @@ if HISTOGRAM:
     plt.bar(x=[i for i in range(max_degree + 1)], height=deg_spread, label='[i for i in range(max_degree + 1)]')
     plt.show()
 
-# Add Color to each node
-available_colors = ['#FF0000', '#800000', '#FFFF00', '#00FFFF']
-for i in g.nodes:
-    g.nodes[i]['color'] = available_colors[page_types.index(g.nodes[i]['page_type'])]
 
-# Add Legend Nodes
-print("Adding legends")
-size = 50 * (1 if CULL else CULL_SIZE_FACTOR)
-step = size * 4
-l_g = -size * 40
-l_y = 0
-legend_nodes = [
-    (
-        NODE_LIMIT + i,
-        {
-            'label': page_types[i],
-            'fixed': True,  # So that we can move the legend nodes around to arrange them better
-            'physics': False,
-            'x': l_g,
-            'y': f'{l_y + i * step}px',
-            'shape': 'box',
-            'color': available_colors[i],
-            'font': {'size': size * 2}
-        }
-    )
-    for i in range(len(page_types))
-]
-print("UNFREEZING")
-g = nx.Graph(g)  # Unfreeze graph for some reason
-print("ADDING TO GRAPH")
-g.add_nodes_from(legend_nodes)
-
-nt = Network(height=900)
-nt.toggle_physics(False)
-nt.toggle_stabilization(False)
-nt.toggle_drag_nodes(True)
-print("CREATING")
-nt.from_nx(g)
-if SHOW:
-    print('SHOWING')
-    nt.show("degree_centrality_culled.html", notebook=False)
+finish_time = time.time()
+print(f'time taken:{finish_time - start_time}')

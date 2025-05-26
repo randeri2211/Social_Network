@@ -29,18 +29,27 @@ except ImportError:
     subprocess.check_call([sys.executable, "-m", "pip", "install", "numpy"])
     import numpy as np
 
+GROUP = "government"
+GROUP_COL = "group"
 graph_name = "facebook"
 nxG = nx.read_graphml(f"graphmls/{graph_name}.graphml")
 
 
-def get_initial_seeds(G, k):
-    return random.sample(list(G.nodes), k)
+def get_initial_seeds(G, k, group=None):
+    if group is None:
+        raise ValueError("No group in seed")
+    node_color = nx.get_node_attributes(G, GROUP_COL)  # or "opinion"
+    nodes = list(map(lambda x: x[0], filter(lambda x: x[1] == group, node_color.items())))
+    print(f"Seed of type {GROUP} length {len(nodes)}")
+    if k > len(nodes):
+        return nodes
+    return random.sample(list(nodes), k)
 
 
 def run_ic_homophily(G, seeds, p_homo=1.0, q_hetero=0.0):
     active = set(seeds)  # currently influenced
     newly_active = set(seeds)  # activated in the last round
-    node_color = nx.get_node_attributes(G, "group")  # or "opinion"
+    node_color = nx.get_node_attributes(G, GROUP_COL)  # or "opinion"
     lengths = []
     while newly_active:
         next_newly_active = set()
@@ -89,7 +98,7 @@ def apply_brr_regulation(G, rho):
     removed = random.sample(edges, num_to_rewire)
     G.remove_edges_from(removed)
 
-    node_color = nx.get_node_attributes(G, "group")
+    node_color = nx.get_node_attributes(G, GROUP_COL)
     nodes = list(G.nodes)
     added = 0
 
@@ -112,6 +121,7 @@ def sperad(graph, max_seed_size, title, reps=1):
     # Get reps data points
     for seed_size in seed_sizes:
         print(f'initial seed size:{seed_size}')
+        seeds = get_initial_seeds(graph, seed_size, GROUP)
         temp_spreads = []
         temp_steps = []
         temp_active = []
@@ -119,9 +129,8 @@ def sperad(graph, max_seed_size, title, reps=1):
             if seed_size == 0:
                 temp_active.append((0, 0))
                 temp_steps.append((0, 0))
-                temp_spreads.append(([0],[0]))
+                temp_spreads.append(([0], [0]))
                 continue
-            seeds = get_initial_seeds(graph, seed_size)
             p = 1.0
             q = 1 - p
             spread1 = run_ic_homophily(graph, seeds, p_homo=p, q_hetero=q)
@@ -141,7 +150,7 @@ def sperad(graph, max_seed_size, title, reps=1):
     # Average Steps and Active set sizes
     def avg(lst):
         for i in range(len(lst)):
-            temp_val = list(map(lambda x:x/reps,lst[i][0]))
+            temp_val = list(map(lambda x: x / reps, lst[i][0]))
             for j in range(len(lst[i][0])):
                 for rep in range(1, reps):
                     temp_val[j] += lst[i][rep][j] / reps
@@ -172,10 +181,9 @@ def sperad(graph, max_seed_size, title, reps=1):
         return averaged
 
     averaged_spreads = average_spreads(spreads)
-    # print(spreads)
-    # print(averaged_spreads)
-    # exit()
+
     return active_set_size, step_sizes, averaged_spreads, title
+
 
 def draw_graph(*kargs, spread=False):
     def draw(index, x_label, y_label, title):
@@ -184,7 +192,6 @@ def draw_graph(*kargs, spread=False):
         for i in range(len(kargs)):
             graph_data = kargs[i]
             fig_name += f"_{graph_data[-1]}"
-            print(graph_data[index])
             if spread:
                 spreads1 = list(map(lambda x: x[0], graph_data[index]))
                 spreads07 = list(map(lambda x: x[1], graph_data[index]))
@@ -193,14 +200,14 @@ def draw_graph(*kargs, spread=False):
                              spreads1[j],
                              label=f"p=1.0 {graph_data[-1]} seed size={j}",
                              linestyle='-',
-                             linewidth=i+1,
+                             linewidth=i + 1,
                              )
 
                     plt.plot(range(len(spreads07[j])),
                              spreads07[j],
                              label=f"p=0.7 {graph_data[-1]} seed size={j}",
                              linestyle='--',
-                             linewidth=i+1,
+                             linewidth=i + 1,
                              )
             else:
                 plt.plot(range(len(graph_data[index])),
@@ -215,15 +222,14 @@ def draw_graph(*kargs, spread=False):
                          linestyle='--',
                          )
 
-
-
         plt.xlabel(f"{x_label}")
         plt.ylabel(f"{y_label}")
         plt.title(f"{title}")
         plt.legend()
         plt.grid(True)
         print(f"{fig_name}.png")
-        plt.savefig(f"{fig_name}.png")
+        plt.savefig(f"images/{fig_name}.png")
+
     if spread:
         draw(2, "Step", "Affected Nodes", "Spread by Step")
     else:
@@ -236,15 +242,15 @@ G_RLR05 = apply_rlr_regulation(nxG, rho=0.5)
 G_BRR025 = apply_brr_regulation(nxG, rho=0.25)
 G_BRR05 = apply_brr_regulation(nxG, rho=0.5)
 
-seed_size = 10
-reps = 5
+seed_size = 20
+reps = 30
 
 base_data = sperad(nxG, seed_size, "Base", reps)
 rlr025_data = sperad(G_RLR025, seed_size, "RLR 0.25", reps)
 rlr05_data = sperad(G_RLR05, seed_size, "RLR 0.5", reps)
 brr025_data = sperad(G_BRR025, seed_size, "BRR 0.25", reps)
 brr05_data = sperad(G_BRR05, seed_size, "BRR 0.5", reps)
-
+#
 data = [
     base_data,
     rlr025_data,
